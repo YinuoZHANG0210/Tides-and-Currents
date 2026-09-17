@@ -3,64 +3,63 @@
 # dependencies = ["matplotlib"]
 # ///
 
-"""
-Read the file in data/, make one picture, save it to out/.
+"""Make a tide-level picture from the committed NOAA JSON file.
 
     uv run plot.py
 
-Three parts, and you will replace all three: rows() reads the file the way *your*
-file needs reading, the loop in main() picks the numbers out of it, and the plot at
-the bottom is the transformation you chose. Print before you plot.
+The script reads data/ only, so it works without wifi. NOAA recorded one water
+level every six minutes at San Francisco during August 2026.
 """
 
-import csv
+import json
+from datetime import datetime
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")  # save a PNG; do not require a graphical desktop
 import matplotlib.pyplot as plt
 
-FILE = "hko-daily-mean-temperature-2026.csv"   # CHANGE ME: the same name as in fetch.py
-PICTURE = "plot.png"                           # what goes into out/, and into the README
+FILE = "noaa-san-francisco-water-level-2026-08.json"
+PICTURE = "san-francisco-tides-2026-08.png"
 
 HERE = Path(__file__).parent
 DATA = HERE / "data" / FILE
 OUT = HERE / "out"
 
 
-def rows(path):
-    """The file as a list of lists, one per line. The Observatory puts three lines
-    of titles above the table and a legend below it, so keep only the lines that
-    start with a year."""
-    kept = []
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        for line in csv.reader(handle):
-            if line and line[0].isdigit():
-                kept.append(line)
-    return kept
+def observations(path):
+    """Return UTC datetimes and verified water levels in metres from NOAA JSON."""
+    with path.open(encoding="utf-8") as handle:
+        reply = json.load(handle)
+
+    times, levels = [], []
+    for row in reply["data"]:  # one loop over the measurements
+        if row["q"] != "v":
+            continue
+        times.append(datetime.strptime(row["t"], "%Y-%m-%d %H:%M"))
+        levels.append(float(row["v"]))
+    return times, levels
 
 
 def main():
-    table = rows(DATA)
-    print(f"{DATA.name}: {len(table)} rows. The first one: {table[0]}")
+    times, levels = observations(DATA)
+    print(f"{DATA.name}: {len(levels)} verified measurements.")
+    print(f"From {times[0]} to {times[-1]} UTC; {min(levels):.3f}–{max(levels):.3f} m.")
 
-    days, values = [], []
-    for i, (year, month, day, value, quality) in enumerate(table):   # the loop over the numbers
-        if value == "***":                   # the Observatory's word for "missing"
-            continue
-        days.append(i + 1)
-        values.append(float(value))          # it arrived as text; make it a number
-    print(f"{len(values)} values, from {min(values)} to {max(values)}")
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(days, values, color="#d6591d", linewidth=1.5)
-    ax.set_xlabel("day of 2026")
-    ax.set_ylabel("daily mean temperature, °C")
-    ax.set_title("Hong Kong Observatory, 2026 so far")
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(times, levels, color="#176b87", linewidth=0.8)
+    ax.fill_between(times, levels, 0, color="#9acbd7", alpha=0.35)
+    ax.axhline(0, color="#475569", linewidth=0.8)
+    ax.set_xlabel("date and time (UTC)")
+    ax.set_ylabel("observed water level (m above MLLW)")
+    ax.set_title("Tidal water level at San Francisco — August 2026")
+    ax.grid(axis="y", color="#cbd5e1", linewidth=0.6)
     fig.tight_layout()
 
     OUT.mkdir(exist_ok=True)
     fig.savefig(OUT / PICTURE, dpi=150)
     print(f"saved out/{PICTURE}")
-    plt.show()
 
 
 if __name__ == "__main__":
