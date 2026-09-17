@@ -8,20 +8,23 @@ Fetch the numbers once, save the raw reply to data/, and never fetch again.
 
     uv run fetch.py
 
-Change URL and FILE. The default is the Hong Kong Observatory's daily mean
-temperature for 2026, so the template runs before you have touched it and you
-can see what a file looks like when it arrives. It is an example, not your
-phenomenon: handing it in unchanged is handing in nothing.
+Download NOAA's six-minute observed water levels at San Francisco, California,
+for August 2026. The first run saves NOAA's JSON response unchanged; later
+runs use that committed file and do not make a network request.
 """
 
 from pathlib import Path
 
 import requests
 
-URL = ("https://data.weather.gov.hk/weatherAPI/opendata/opendata.php"
-       "?dataType=CLMTEMP&rformat=csv&station=HKO&year=2026")      # CHANGE ME
-FILE = "hko-daily-mean-temperature-2026.csv"                          # CHANGE ME: say what it is,
-                                                                      # keep the publisher's extension
+URL = (
+    "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    "?begin_date=20260801&end_date=20260831"
+    "&station=9414290&product=water_level&datum=MLLW"
+    "&time_zone=gmt&units=metric"
+    "&application=TidesAndCurrentsAssignment&format=json"
+)
+FILE = "noaa-san-francisco-water-level-2026-08.json"
 HERE = Path(__file__).parent
 DATA = HERE / "data"
 
