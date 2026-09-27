@@ -9,7 +9,7 @@
 
 The renderer reads only the committed JSON in data/. Each of the 7,440 NOAA
 observations becomes a long streamline in a custom two-dimensional flow field.
-Eight frames reveal each UTC day in sequence, so the GIF follows the
+Twenty-four frames reveal each UTC day hour by hour, so the GIF follows the
 measurements' real order without fetching anything.
 """
 
@@ -24,11 +24,12 @@ matplotlib.use("Agg")  # create image files reliably, including on GitHub Action
 import matplotlib.pyplot as plt
 from matplotlib.animation import PillowWriter
 from matplotlib.collections import LineCollection
+from PIL import Image
 
 FILE = "noaa-san-francisco-water-level-2026-08.json"
 ANIMATION = "tidal-mycelium-2026-08.gif"
 STILL = "tidal-mycelium-still.png"
-STEPS_PER_DAY = 8  # one animated step per three hours of observations
+STEPS_PER_DAY = 24  # one animated step per hour, releasing ten six-minute readings
 
 HERE = Path(__file__).parent
 DATA = HERE / "data" / FILE
@@ -72,6 +73,12 @@ def mix(first, second, amount):
     return tuple(a + (b - a) * amount for a, b in zip(first, second))
 
 
+def smooth(value):
+    """Ease the birth of a new observed filament without a hard edge."""
+    value = clamp(value)
+    return value * value * (3 - 2 * value)
+
+
 def colour(level_fraction, rising):
     """Map low water to teal and high water to luminous mineral gold."""
     low = (0.03, 0.25, 0.33)
@@ -90,18 +97,24 @@ def day_stats(day, low_level, high_level, smallest_range, largest_range):
     return mean_fraction, range_fraction, day_mean, day_range
 
 
-def filament_collections(day, flow_phase, parameters, change_scale):
-    """Make a complete, slowly moving field from one day's 240 observations."""
+def filament_collections(day, release, parameters, change_scale, opacity=1.0, stride=1):
+    """Make the field accumulated up to this real time in the UTC day."""
     mean_fraction, range_fraction = parameters[:2]
     spread = 0.46 + 0.82 * range_fraction ** 0.72
     core = 0.13 + 0.25 * (1 - range_fraction) + 0.06 * (1 - mean_fraction)
     paths, colours, glow_colours, widths = [], [], [], []
+    particle_paths, particle_colours, particle_widths = [], [], []
 
-    for slot, row in enumerate(day):
+    for slot in range(0, len(day), stride):
+        row = day[slot]
         time_fraction = slot / (len(day) - 1)
-        # A soft, slow highlight travels round the clock. All 240 records remain
-        # present in every frame, rather than forming a first/second-stage image.
-        freshness = max(0, math.cos(2 * math.pi * (time_fraction - flow_phase))) ** 10
+        age = release - time_fraction
+        if age < -0.002:  # this six-minute measurement has not occurred yet
+            continue
+        arrival = smooth((age + 0.018) * STEPS_PER_DAY * 1.5)
+        # Earlier measurements persist as dim trails; newly released records glow.
+        persistence = 0.38 + 0.62 * math.exp(-0.34 * max(age, 0))
+        freshness = math.exp(-7.5 * max(age, 0))
         level_fraction = clamp((row["level"] - parameters[4]) / (parameters[5] - parameters[4]))
         previous = day[max(0, slot - 1)]["level"]
         change_fraction = clamp((row["level"] - previous) / change_scale, -1.0, 1.0)
@@ -111,18 +124,18 @@ def filament_collections(day, flow_phase, parameters, change_scale):
         radius = core + (0.14 + 0.42 * level_fraction) * spread
         # Long reach and a signed sweep create a water-current-like trail. They
         # remain determined by v and its six-minute change, not random particles.
-        reach = (0.13 + 0.52 * level_fraction) * spread
+        reach = (0.18 + 0.70 * level_fraction) * spread * (0.25 + 0.75 * arrival)
         curl = 0.16 + 0.86 * change_fraction
-        sweep = (0.28 + 0.36 * level_fraction + 0.42 * abs(change_fraction))
+        sweep = (0.34 + 0.44 * level_fraction + 0.52 * abs(change_fraction))
         sweep *= 1 if change_fraction >= 0 else -1
-        drift = 0.08 * math.sin(2 * math.pi * (flow_phase - time_fraction))
-        wiggle = 0.022 + 0.035 * range_fraction
+        drift = 0.08 * math.sin(2 * math.pi * (release - time_fraction))
+        wiggle = 0.028 + 0.048 * range_fraction
 
         thread = []
         for step in range(42):
             progress = step / 41
-            wave = math.sin(slot * 0.19 + step * 0.64 + flow_phase * math.pi * 2)
-            eddy = math.sin(slot * 0.07 - step * 0.31 + flow_phase * math.pi)
+            wave = math.sin(slot * 0.19 + step * 0.64 + release * math.pi * 2)
+            eddy = math.sin(slot * 0.07 - step * 0.31 + release * math.pi)
             angle = base_angle + (curl + drift) * progress + sweep * progress ** 1.28 + wiggle * wave
             distance = radius + reach * progress + wiggle * 1.8 * eddy * (1 - progress * 0.35)
             thread.append((distance * math.cos(angle), distance * math.sin(angle)))
@@ -130,19 +143,27 @@ def filament_collections(day, flow_phase, parameters, change_scale):
 
         flagged = row["flags"] != "0,0,0,0"
         quality_alpha = 0.76 if row["quality"] == "v" else 0.30
-        alpha = quality_alpha * (0.62 + 0.38 * freshness) * (0.18 if flagged else 1.0)
+        alpha = opacity * quality_alpha * persistence * arrival * (0.62 + 0.38 * freshness)
+        alpha *= 0.18 if flagged else 1.0
         red, green, blue = colour(level_fraction, change_fraction >= 0)
-        red, green, blue = mix((red, green, blue), (0.92, 0.99, 0.96), 0.08 + 0.42 * freshness)
+        red, green, blue = mix((red, green, blue), (0.92, 0.99, 0.96), 0.10 + 0.48 * freshness)
         colours.append((red, green, blue, alpha))
         glow_colours.append((red, green, blue, alpha * 0.11))
-        widths.append((0.16 + 0.82 * level_fraction) * (0.72 + 0.48 * range_fraction))
+        widths.append((0.09 + 0.48 * level_fraction) * (0.72 + 0.48 * range_fraction))
 
-    glow = LineCollection(paths, colors=glow_colours, linewidths=[width + 1.8 for width in widths], capstyle="round")
+        # A small dash moves along every actual record's curve as the clock advances.
+        particle_index = int(((release * 1.6 + time_fraction * 0.35) % 1) * (len(thread) - 2))
+        particle_paths.append(thread[particle_index:particle_index + 2])
+        particle_colours.append((0.96, 1.0, 0.98, alpha * (0.35 + 0.65 * freshness)))
+        particle_widths.append(widths[-1] + 1.05)
+
+    glow = LineCollection(paths, colors=glow_colours, linewidths=[width + 1.15 for width in widths], capstyle="round")
     threads = LineCollection(paths, colors=colours, linewidths=widths, capstyle="round")
-    return glow, threads
+    particles = LineCollection(particle_paths, colors=particle_colours, linewidths=particle_widths, capstyle="round")
+    return glow, threads, particles
 
 
-def water_ripples(ax, parameters, flow_phase):
+def water_ripples(ax, parameters, release):
     """Draw broad, data-driven water ripples behind the streamlines."""
     mean_fraction, range_fraction = parameters[:2]
     paths, colours, widths = [], [], []
@@ -152,37 +173,64 @@ def water_ripples(ax, parameters, flow_phase):
         amplitude = 0.010 + (0.014 + 0.020 * range_fraction) * (ring + 1) / 7
         for step in range(121):
             angle = 2 * math.pi * step / 120
-            wave = math.sin((2 + ring % 3) * angle - flow_phase * math.pi * 2)
+            wave = math.sin((2 + ring % 3) * angle - release * math.pi * 2)
             cross_wave = 0.45 * math.sin((5 + ring) * angle + mean_fraction * math.pi * 2)
             radius = base_radius + amplitude * (wave + cross_wave)
             points.append((radius * math.cos(angle), radius * math.sin(angle)))
         paths.append(points)
-        colours.append((0.08, 0.46, 0.57, 0.07 + 0.025 * range_fraction))
-        widths.append(0.30 + 0.15 * ring)
+        colours.append((0.14, 0.64, 0.77, 0.14 + 0.040 * range_fraction))
+        widths.append(0.34 + 0.16 * ring)
     ax.add_collection(LineCollection(paths, colors=colours, linewidths=widths))
 
 
-def draw_frame(ax, day, flow_phase, parameters, change_scale):
-    """Draw one complete daily field with a gently moving water surface."""
+def ghost_snapshot(day, parameters, change_scale):
+    """Render one day's threads once, ready to fade behind the following day."""
+    figure = plt.figure(figsize=(6, 6), dpi=58)
+    figure.patch.set_alpha(0)
+    axes = figure.add_axes((0, 0, 1, 1))
+    axes.patch.set_alpha(0)
+    axes.set_aspect("equal")
+    axes.set_xlim(-1.90, 1.90)
+    axes.set_ylim(-1.90, 1.90)
+    axes.axis("off")
+    glow, threads, particles = filament_collections(day, 1.0, parameters, change_scale)
+    axes.add_collection(glow)
+    axes.add_collection(threads)
+    axes.add_collection(particles)
+    figure.canvas.draw()
+    image = Image.frombytes("RGBA", figure.canvas.get_width_height(), bytes(figure.canvas.buffer_rgba()))
+    plt.close(figure)
+    return image
+
+
+def draw_frame(ax, day, ghost, release, parameters, change_scale):
+    """Draw a daily field where the previous day dissolves as this one grows."""
     mean_fraction, range_fraction, day_mean, day_range, low_level, high_level = parameters
     ax.clear()
     ax.set_facecolor("#040b12")
     ax.set_aspect("equal")
-    ax.set_xlim(-1.62, 1.62)
-    ax.set_ylim(-1.62, 1.62)
+    ax.set_xlim(-1.90, 1.90)
+    ax.set_ylim(-1.90, 1.90)
     ax.axis("off")
 
-    water_ripples(ax, parameters, flow_phase)
-    glow, threads = filament_collections(day, flow_phase, parameters, change_scale)
+    water_ripples(ax, parameters, release)
+    if ghost is not None:
+        # Retain yesterday as a dim memory at midnight, then dissolve it gradually.
+        ghost_opacity = 0.30 * (1 - release) ** 0.58
+        ax.imshow(ghost, extent=(-1.90, 1.90, -1.90, 1.90), alpha=ghost_opacity, zorder=1)
+    glow, threads, particles = filament_collections(day, release, parameters, change_scale)
     ax.add_collection(glow)
     ax.add_collection(threads)
+    ax.add_collection(particles)
 
     date_label = day[0]["time"].strftime("%d AUG 2026")
     ax.text(-1.46, 1.42, "TIDE / FIELD", color="#70aab4", fontsize=8, weight="bold", ha="left")
     ax.text(-1.46, 1.29, date_label, color="#e6f4ed", fontsize=15, weight="bold", ha="left")
     ax.text(-1.46, -1.43, f"MEAN {day_mean:0.2f} M", color="#78949b", fontsize=8, ha="left")
     ax.text(1.46, -1.43, f"RANGE {day_range:0.2f} M", color="#e3be70", fontsize=8, ha="right")
-    ax.text(0, 0.09, "00 — 24", color="#f1f6ec", fontsize=18, ha="center", va="center")
+    hour = round(release * 24)
+    clock = "24:00" if hour == 24 else f"{hour:02}:00"
+    ax.text(0, 0.09, clock, color="#f1f6ec", fontsize=20, ha="center", va="center")
     ax.text(0, -0.16, "UTC · SAN FRANCISCO", color="#7d9aa0", fontsize=7, ha="center", va="center")
 
 
@@ -211,16 +259,18 @@ def main():
     OUT.mkdir(exist_ok=True)
 
     fig, ax = canvas()
+    ghosts = [ghost_snapshot(day, parameter, change_scale) for day, parameter in zip(days, parameters)]
     writer = PillowWriter(fps=8)
-    with writer.saving(fig, OUT / ANIMATION, dpi=100):
+    with writer.saving(fig, OUT / ANIMATION, dpi=58):
         for index, day in enumerate(days):
+            ghost = ghosts[index - 1] if index else None
             for step in range(STEPS_PER_DAY):
-                flow_phase = step / STEPS_PER_DAY
-                draw_frame(ax, day, flow_phase, parameters[index], change_scale)
+                release = (step + 1) / STEPS_PER_DAY
+                draw_frame(ax, day, ghost, release, parameters[index], change_scale)
                 writer.grab_frame()
     print(f"saved out/{ANIMATION}")
 
-    draw_frame(ax, days[widest_index], 0.0, parameters[widest_index], change_scale)
+    draw_frame(ax, days[widest_index], None, 1.0, parameters[widest_index], change_scale)
     fig.savefig(OUT / STILL, dpi=160, facecolor=fig.get_facecolor())
     print(f"saved out/{STILL}")
     plt.close(fig)
