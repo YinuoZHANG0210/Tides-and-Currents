@@ -57,18 +57,16 @@ The GIF is deliberately slow enough to make one day legible before the next
 date arrives. The still is the frame with the largest daily tidal range, so the
 README also shows the full visual system when animation is not playing.
 
-**What the pictures show:** where each observation falls in the day, through
-its position around the circular clock; whether the water level is relatively
-low (teal) or high (gold); and whether it is rising or falling, through the
-signed bend of the trace. A fresh reading has a bright particle dash, then it
-fades by its own age for 48 hours, leaving only dark traces across midnight.
-
-**What they hide:** the normal Cartesian time axis, exact numeric values, and
-the physical causes of each small departure from the tide. The smooth curves
-are not measured water-current paths, and the particle is not a further NOAA
-variable; both are a visual interpretation of timestamp, level and six-minute
-change. The web-page `Line form` control exaggerates length and twist for
-exploration, but does not alter the data-derived colour, quality flag or age.
+**What the pictures show:** Each trace's position around the circular clock
+shows when its observation occurred, its teal-to-gold colour shows relatively
+low-to-high water, and its signed bend shows whether the level is rising or
+falling. A fresh reading has a bright particle dash, then fades by its own age
+for 48 hours, leaving only dark traces across midnight. **What they hide:** The
+view omits the normal Cartesian time axis, exact numeric values, geography, and
+the physical cause of each small change; its smooth curves are not measured
+current paths, its particle is not another NOAA variable, and the web-page
+`Line form` control exaggerates geometry without changing data-derived colour,
+quality flag, or age.
 
 ## How it works
 

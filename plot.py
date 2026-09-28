@@ -96,7 +96,7 @@ def day_stats(day, low_level, high_level, smallest_range, largest_range):
     return mean_fraction, range_fraction, day_mean, day_range
 
 
-def filament_collections(day, release, parameters, change_scale, day_offset=0, opacity=1.0, stride=1):
+def filament_collections(day, release, parameters, change_scale, day_offset=0, stride=1):
     """Draw records by their real age, retaining every thread for two days."""
     mean_fraction, range_fraction = parameters[:2]
     spread = 0.46 + 0.82 * range_fraction ** 0.72
@@ -145,7 +145,7 @@ def filament_collections(day, release, parameters, change_scale, day_offset=0, o
 
         flagged = row["flags"] != "0,0,0,0"
         quality_alpha = 0.76 if row["quality"] == "v" else 0.30
-        alpha = opacity * quality_alpha * persistence * arrival * (0.62 + 0.38 * freshness)
+        alpha = quality_alpha * persistence * arrival * (0.62 + 0.38 * freshness)
         alpha *= 0.18 if flagged else 1.0
         red, green, blue = colour(level_fraction, change_fraction >= 0)
         red, green, blue = mix((red, green, blue), (0.92, 0.99, 0.96), 0.10 + 0.48 * freshness)
