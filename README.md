@@ -58,15 +58,15 @@ date arrives. The still is the frame with the largest daily tidal range, so the
 README also shows the full visual system when animation is not playing.
 
 **What the pictures show:** Each trace's position around the circular clock
-shows when its observation occurred, its teal-to-gold colour shows relatively
-low-to-high water, and its signed bend shows whether the level is rising or
-falling. A fresh reading has a bright particle dash, then fades by its own age
-for 48 hours, leaving only dark traces across midnight. **What they hide:** The
-view omits the normal Cartesian time axis, exact numeric values, geography, and
-the physical cause of each small change; its smooth curves are not measured
-current paths, its particle is not another NOAA variable, and the web-page
-`Line form` control exaggerates geometry without changing data-derived colour,
-quality flag, or age.
+places an observation in the day, its teal-to-gold colour turns low-to-high
+water into light, and its signed bend gives a rising or falling level a visible
+gesture. A new reading arrives as a bright particle and then fades over 48
+hours, so midnight becomes an overlap of the present tide and a dim memory of
+the days before it. **What they hide:** Instead of preserving a gauge chart's
+axes, exact labels, map location, and physical explanations, the work turns
+time, height, and six-minute change into a field of marks; its smooth arcs,
+moving particle, and adjustable `Line form` are an expressive language for
+water's rhythm, not a claim to show measured current paths.
 
 ## How it works
 
