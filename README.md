@@ -14,8 +14,7 @@ rendered pictures, and an optional interactive page made from the same numbers.
 ![Still frame from the Tide Traces animation](out/tide-traces-still.png)
 
 **The interactive page:** <https://yinuozhang0210.github.io/Tides-and-Currents/>
-— choose a UTC date, alter the trail form, and change the speed. It becomes
-available after GitHub Pages is enabled for this repository.
+— choose a UTC date, alter the trail form, and change the speed.
 
 ## The phenomenon
 
