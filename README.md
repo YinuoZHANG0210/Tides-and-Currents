@@ -1,78 +1,94 @@
 # Tide Traces — San Francisco, one month, moving
 
-San Francisco Bay does not simply fill and empty. The sea rises and falls with
-the pull of the Moon and Sun, while wind, air pressure and the shape of the bay
-change what a tide gauge actually sees. This project takes one month of those
-six-minute observations, lets each reading grow into a flowing thread, and
-plays August 2026 back as a slowly changing tidal field.
+San Francisco Bay does not simply fill and empty. The water rises and falls
+with the pull of the Moon and Sun, while wind, air pressure and the geometry of
+the bay change what the tide gauge receives. This repository takes one month of
+six-minute water-level observations, turns every reading into a flowing trace,
+and plays August 2026 back as a slowly changing tidal field.
 
-It is a data visualisation of one natural phenomenon: 7,440 measured water
-levels, one committed raw file, and a picture that cannot be drawn by hand.
-
-**Interactive page:** [Tide Traces](https://yinuozhang0210.github.io/Tides-and-Currents/)
-lets you choose a UTC date and reshape the live field. It is rebuilt from the
-committed data on every push after GitHub Pages is enabled.
+It is one published file of measurements about a natural phenomenon, two
+rendered pictures, and an optional interactive page made from the same numbers.
 
 ![Tide Traces: San Francisco water levels through August 2026](out/tide-traces-2026-08.gif)
 
 ![Still frame from the Tide Traces animation](out/tide-traces-still.png)
 
+**The interactive page:** <https://yinuozhang0210.github.io/Tides-and-Currents/>
+— choose a UTC date, alter the trail form, and change the speed. It becomes
+available after GitHub Pages is enabled for this repository.
+
 ## The phenomenon
 
 Tidal height is the height of the water surface relative to a local reference
-level. At San Francisco it usually cycles through high and low water about
-twice a day, but the height reached and the speed of the rise or fall change
-through the month. I used this dataset because a normal line chart makes that
-regularity easy to read, while the animation makes the repeated, uneven pulse
-of the water the subject of the image.
+level. San Francisco normally passes through high and low water about twice a
+day, but neither the height reached nor the speed of the rise and fall is the
+same every day. A line chart makes that periodicity easy to read; this animation
+uses its repeating but uneven pulse as the subject of the picture instead.
 
 ## The source
 
-The [NOAA CO-OPS Data API](https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=20260801&end_date=20260831&station=9414290&product=water_level&datum=MLLW&time_zone=gmt&units=metric&application=TidesAndCurrentsAssignment&format=json)
-publishes observed water levels for San Francisco station 9414290. Its response
-is committed unchanged as
-[`data/noaa-san-francisco-water-level-2026-08.json`](data/noaa-san-francisco-water-level-2026-08.json):
-7,440 rows, one observed reading every six minutes from 1 to 31 August 2026.
-Each row has `t` (UTC time), `v` (water level in metres above Mean Lower Low
-Water / MLLW), `s` (sample standard deviation), `f` (quality flags), and `q`
-(quality status). `fetch.py` downloads the reply only when that file is absent;
-afterwards, all rendering happens locally from `data/`.
+[NOAA Tides and Currents](https://tidesandcurrents.noaa.gov/), operated by the
+Center for Operational Oceanographic Products and Services (CO-OPS), publishes
+observed water levels for San Francisco station 9414290. Its `water_level`
+product is returned as JSON; this endpoint asks for one month, MLLW as the
+vertical datum, GMT as the time zone, and metric units:
+
+```text
+https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=20260801&end_date=20260831&station=9414290&product=water_level&datum=MLLW&time_zone=gmt&units=metric&application=TidesAndCurrentsAssignment&format=json
+```
+
+One reply covers the whole month. It contains 7,440 readings: one observed
+water level every six minutes from 1 to 31 August 2026, at one tide gauge. Each
+JSON item has `t` (UTC timestamp), `v` (water level in metres above Mean Lower
+Low Water / MLLW), `s` (sample standard deviation), `f` (quality flags), and
+`q` (quality status). `fetch.py` makes exactly this one request only if the
+target file is absent, then saves the reply byte-for-byte as
+[`data/noaa-san-francisco-water-level-2026-08.json`](data/noaa-san-francisco-water-level-2026-08.json).
+Once that committed file exists, every picture and web page runs only from
+`data/`, with the internet off.
 
 ## The pictures
 
-| File | What it is |
-| --- | --- |
-| `out/tide-traces-2026-08.gif` | 744 frames: every UTC day appears in 24 hourly steps, revealing its six-minute records in order. |
-| `out/tide-traces-still.png` | A still frame for GitHub and for seeing the visual system without waiting for the animation. |
+| Command | Makes | What it is |
+| --- | --- | --- |
+| `uv run plot.py` | `out/tide-traces-2026-08.gif`, `out/tide-traces-still.png` | A 744-frame GIF: 31 UTC days × 24 hourly releases. Each frame adds the readings that have occurred so far that day. |
+| `uv run web.py` | `site/index.html` | The same data and visual rules as an interactive Canvas page: select one UTC date, change the trails' length and twist, and alter playback speed. |
 
-**What the pictures show:** when a reading occurs around the circular clock;
-whether its level is relatively low (teal) or high (gold); and how the water is
-rising or falling, through the direction of each curved thread. New records are
-bright and carry a small moving particle; each record fades independently for
-48 hours, so the previous days remain only as dark traces.
+The GIF is deliberately slow enough to make one day legible before the next
+date arrives. The still is the frame with the largest daily tidal range, so the
+README also shows the full visual system when animation is not playing.
 
-**What they hide:** the usual time axis, exact water levels, the station's
-geographic setting, and the physical reason for each small change. The curves
-are not measured currents and the particle is not another NOAA variable: both
-are an interpretation of timestamp, height and six-minute change. This is an
-artwork about the record, not a chart to use for navigation.
+**What the pictures show:** where each observation falls in the day, through
+its position around the circular clock; whether the water level is relatively
+low (teal) or high (gold); and whether it is rising or falling, through the
+signed bend of the trace. A fresh reading has a bright particle dash, then it
+fades by its own age for 48 hours, leaving only dark traces across midnight.
+
+**What they hide:** the normal Cartesian time axis, exact numeric values, and
+the physical causes of each small departure from the tide. The smooth curves
+are not measured water-current paths, and the particle is not a further NOAA
+variable; both are a visual interpretation of timestamp, level and six-minute
+change. The web-page `Line form` control exaggerates length and twist for
+exploration, but does not alter the data-derived colour, quality flag or age.
 
 ## How it works
 
-Three small transformations and a loop make the image:
+Three functions, each a transformation, and a loop make the image:
 
-- `observations()` reads all five NOAA fields without changing the raw file.
-- `day_stats()` derives the daily mean and tidal range; these set the spread of
-  the field and the background ripple shape.
-- `filament_collections()` turns one row into a curved thread: `t` sets its
-  starting angle, `v` sets its radius, reach, width and colour, and the
-  difference from the previous `v` sets its bend. `f` and `q` reduce opacity
-  when a record is not fully verified. `s` is read but not drawn, because every
-  value in this file is the same (`0.028`).
+- `observations()` reads all 7,440 JSON observations and retains the five NOAA
+  fields used by the renderer.
+- `day_stats()` derives one day's mean level and tidal range. Those derived
+  values set the field's spread and the size of the background ripples.
+- `filament_collections()` turns one record into a trace: `t` gives its starting
+  angle, `v` gives radius, reach, width and colour, and the difference from the
+  previous `v` gives the signed bend. `f` and `q` reduce opacity for a flagged
+  or non-verified observation; `s` is read but not encoded because every value
+  in this file is `0.028`.
 
-`main()` loops through 31 days and 24 release times per day. A thread is drawn
-until it is two days old, but its opacity drops sharply after the first day;
-this makes a cross-midnight transition without one whole day suddenly vanishing.
+`main()` loops through 31 days and 24 release times per day. The same
+calculation is expressed in browser JavaScript by `web.py`; it writes a
+self-contained `site/index.html` and copies the two rendered preview files
+into `site/assets/`. `site/` is output and is never committed.
 
 ## Run
 
