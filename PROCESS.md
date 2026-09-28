@@ -2,35 +2,35 @@
 
 ## Tools
 
-I used the NOAA CO-OPS Data API to choose a public, no-login source of measured
-water levels. The `fetch.py` script was written with help from OpenAI Codex and
-downloads that reply only if the committed JSON file is missing. I used Python,
-Matplotlib and Pillow in `plot.py` to parse the JSON and render a GIF and a
-still PNG locally. I also used Codex to inspect field definitions and to discuss
-possible visual mappings. A ShaderToy work, *Land Tide*, was a visual reference
-for the idea of flowing threads and trails; I did not copy its GLSL code,
-simulation, textures, or assets. Codex drafted much of the Python renderer; I
-checked its field names against the raw JSON, tested it locally, and iterated
-the mappings and visual result through repeated changes. The final renderer
-reads only `data/` when it runs.
+I used the NOAA CO-OPS Data API as a public source of observed water levels.
+`fetch.py` uses Python `requests` to save the raw API reply only when the JSON
+file is missing; after it is committed, `plot.py` works offline from `data/`.
+I used Python, Matplotlib and Pillow to read the JSON and make the GIF and
+still PNG. I used OpenAI Codex to help draft most of the plotting code, inspect
+the raw field definitions, and iterate on the visual mapping. A ShaderToy work,
+*Land Tide*, was a visual reference for flowing trails; I did not copy its
+GLSL, feedback simulation, textures or assets.
+
+The main correction I made to the drafted renderer was its treatment of time.
+Its first version retained the previous day as one faint raster snapshot, so
+all old lines changed brightness together at midnight. I replaced that with a
+per-record age calculation: each `t` value is retained and faded independently
+for 48 hours. I also checked the literal raw fields (`t`, `v`, `s`, `f`, `q`)
+against the JSON and confirmed that all 7,440 records parse; no field was
+invented and no unparsable rows were silently dropped.
 
 ## Kept
 
-I kept the proposal to use the water level itself in several related visual
-properties: height controls each thread's reach, thickness and colour, while
-the difference between adjacent six-minute readings bends the thread. This made
-the animation feel like moving water but still made every visible thread depend
-on a real NOAA observation. I also kept the decision to show the previous day
-as a faint, dissolving layer because it makes the transition between dates feel
-continuous instead of resetting the image at midnight.
+I kept the idea of mapping water level to several linked visual properties:
+`v` controls reach, thickness and colour, while the difference from the prior
+six-minute `v` controls the direction and amount of bend. This was useful
+because the picture gains a water-like sense of motion, but every thread still
+comes from a real record and the mapping can be explained directly from the
+file.
 
 ## Rejected
 
-I rejected a suggestion to map `s`, NOAA's sample standard deviation, to random
-jitter. After checking the raw file, every `s` value is exactly `0.028`, so it
-would not distinguish any observation and would only pretend to be data-driven.
-I also rejected directly adapting the ShaderToy fluid solver: it needs multiple
-feedback buffers and textures that are not part of this dataset, and copying it
-would make the visual logic difficult to explain. Instead, the particle dashes,
-long curves and ripple background are generated from the time, water level,
-level change, daily mean and daily range in the committed JSON.
+I rejected mapping `s` to random jitter. Inspection showed that every `s`
+value in this file is `0.028`; using it to make variable noise would falsely
+suggest that the variability came from the data. I kept `s` in the parser and
+documented why it has no visual encoding instead.

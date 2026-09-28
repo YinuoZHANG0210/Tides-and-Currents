@@ -24,7 +24,6 @@ matplotlib.use("Agg")  # create image files reliably, including on GitHub Action
 import matplotlib.pyplot as plt
 from matplotlib.animation import PillowWriter
 from matplotlib.collections import LineCollection
-from PIL import Image
 
 FILE = "noaa-san-francisco-water-level-2026-08.json"
 ANIMATION = "tidal-mycelium-2026-08.gif"
@@ -97,8 +96,8 @@ def day_stats(day, low_level, high_level, smallest_range, largest_range):
     return mean_fraction, range_fraction, day_mean, day_range
 
 
-def filament_collections(day, release, parameters, change_scale, opacity=1.0, stride=1):
-    """Make the field accumulated up to this real time in the UTC day."""
+def filament_collections(day, release, parameters, change_scale, day_offset=0, opacity=1.0, stride=1):
+    """Draw records by their real age, retaining every thread for two days."""
     mean_fraction, range_fraction = parameters[:2]
     spread = 0.46 + 0.82 * range_fraction ** 0.72
     core = 0.13 + 0.25 * (1 - range_fraction) + 0.06 * (1 - mean_fraction)
@@ -108,13 +107,16 @@ def filament_collections(day, release, parameters, change_scale, opacity=1.0, st
     for slot in range(0, len(day), stride):
         row = day[slot]
         time_fraction = slot / (len(day) - 1)
-        age = release - time_fraction
-        if age < -0.002:  # this six-minute measurement has not occurred yet
+        age = day_offset + release - time_fraction
+        if age < -0.002 or age >= 2.0:
+            # It has either not happened yet, or has reached its 48-hour lifetime.
             continue
-        arrival = smooth((age + 0.018) * STEPS_PER_DAY * 1.5)
-        # Earlier measurements persist as dim trails; newly released records glow.
-        persistence = 0.38 + 0.62 * math.exp(-0.34 * max(age, 0))
-        freshness = math.exp(-7.5 * max(age, 0))
+        # A record grows only on the day it is observed; later days retain it whole.
+        arrival = smooth((release - time_fraction + 0.018) * STEPS_PER_DAY * 1.5) if day_offset == 0 else 1.0
+        # Fade continuously from birth to disappearance two days later. The
+        # steeper curve leaves only a very dark trace once a record is a day old.
+        persistence = (1 - clamp(age / 2.0)) ** 2.60
+        freshness = math.exp(-2.40 * max(age, 0))
         level_fraction = clamp((row["level"] - parameters[4]) / (parameters[5] - parameters[4]))
         previous = day[max(0, slot - 1)]["level"]
         change_fraction = clamp((row["level"] - previous) / change_scale, -1.0, 1.0)
@@ -183,29 +185,11 @@ def water_ripples(ax, parameters, release):
     ax.add_collection(LineCollection(paths, colors=colours, linewidths=widths))
 
 
-def ghost_snapshot(day, parameters, change_scale):
-    """Render one day's threads once, ready to fade behind the following day."""
-    figure = plt.figure(figsize=(6, 6), dpi=58)
-    figure.patch.set_alpha(0)
-    axes = figure.add_axes((0, 0, 1, 1))
-    axes.patch.set_alpha(0)
-    axes.set_aspect("equal")
-    axes.set_xlim(-1.90, 1.90)
-    axes.set_ylim(-1.90, 1.90)
-    axes.axis("off")
-    glow, threads, particles = filament_collections(day, 1.0, parameters, change_scale)
-    axes.add_collection(glow)
-    axes.add_collection(threads)
-    axes.add_collection(particles)
-    figure.canvas.draw()
-    image = Image.frombytes("RGBA", figure.canvas.get_width_height(), bytes(figure.canvas.buffer_rgba()))
-    plt.close(figure)
-    return image
-
-
-def draw_frame(ax, day, ghost, release, parameters, change_scale):
-    """Draw a daily field where the previous day dissolves as this one grows."""
-    mean_fraction, range_fraction, day_mean, day_range, low_level, high_level = parameters
+def draw_frame(ax, days, index, release, parameters, change_scale):
+    """Draw the current day plus every still-living thread from two days before."""
+    day = days[index]
+    day_parameters = parameters[index]
+    mean_fraction, range_fraction, day_mean, day_range, low_level, high_level = day_parameters
     ax.clear()
     ax.set_facecolor("#040b12")
     ax.set_aspect("equal")
@@ -213,12 +197,20 @@ def draw_frame(ax, day, ghost, release, parameters, change_scale):
     ax.set_ylim(-1.90, 1.90)
     ax.axis("off")
 
-    water_ripples(ax, parameters, release)
-    if ghost is not None:
-        # Retain yesterday as a dim memory at midnight, then dissolve it gradually.
-        ghost_opacity = 0.30 * (1 - release) ** 0.58
-        ax.imshow(ghost, extent=(-1.90, 1.90, -1.90, 1.90), alpha=ghost_opacity, zorder=1)
-    glow, threads, particles = filament_collections(day, release, parameters, change_scale)
+    water_ripples(ax, day_parameters, release)
+
+    # Recalculate older threads instead of fading one flat image: each observation
+    # keeps its own timestamp-based lifetime across midnight boundaries.
+    for day_offset in (2, 1):
+        source_index = index - day_offset
+        if source_index >= 0:
+            glow, threads, particles = filament_collections(
+                days[source_index], release, parameters[source_index], change_scale, day_offset=day_offset
+            )
+            ax.add_collection(glow)
+            ax.add_collection(threads)
+            ax.add_collection(particles)
+    glow, threads, particles = filament_collections(day, release, day_parameters, change_scale)
     ax.add_collection(glow)
     ax.add_collection(threads)
     ax.add_collection(particles)
@@ -259,18 +251,16 @@ def main():
     OUT.mkdir(exist_ok=True)
 
     fig, ax = canvas()
-    ghosts = [ghost_snapshot(day, parameter, change_scale) for day, parameter in zip(days, parameters)]
     writer = PillowWriter(fps=8)
     with writer.saving(fig, OUT / ANIMATION, dpi=58):
         for index, day in enumerate(days):
-            ghost = ghosts[index - 1] if index else None
             for step in range(STEPS_PER_DAY):
                 release = (step + 1) / STEPS_PER_DAY
-                draw_frame(ax, day, ghost, release, parameters[index], change_scale)
+                draw_frame(ax, days, index, release, parameters, change_scale)
                 writer.grab_frame()
     print(f"saved out/{ANIMATION}")
 
-    draw_frame(ax, days[widest_index], None, 1.0, parameters[widest_index], change_scale)
+    draw_frame(ax, days, widest_index, 1.0, parameters, change_scale)
     fig.savefig(OUT / STILL, dpi=160, facecolor=fig.get_facecolor())
     print(f"saved out/{STILL}")
     plt.close(fig)
