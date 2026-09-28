@@ -1,36 +1,35 @@
 # Process
 
-## Tools
+This visualisation was developed with OpenAI Codex. The assignment asks for
+honesty about that collaboration, so this records what the model did and what I
+changed after running and looking at the result.
 
-I used the NOAA CO-OPS Data API as a public source of observed water levels.
-`fetch.py` uses Python `requests` to save the raw API reply only when the JSON
-file is missing; after it is committed, `plot.py` works offline from `data/`.
-I used Python, Matplotlib and Pillow to read the JSON and make the GIF and
-still PNG. I used OpenAI Codex to help draft most of the plotting code, inspect
-the raw field definitions, and iterate on the visual mapping. A ShaderToy work,
-*Land Tide*, was a visual reference for flowing trails; I did not copy its
-GLSL, feedback simulation, textures or assets.
+**What the assistant did.** Codex helped choose the NOAA CO-OPS endpoint, wrote
+the first versions of `fetch.py`, `plot.py` and `web.py`, and suggested the flowing-thread
+visual language after I supplied the ShaderToy references. It also helped read
+the raw JSON, make the GIF and still PNG, and draft the documentation. Python
+with `requests` saves the source reply; Matplotlib and Pillow render the final
+files. The final plotting script has no network request: it reads only the
+committed JSON in `data/`.
 
-The main correction I made to the drafted renderer was its treatment of time.
-Its first version retained the previous day as one faint raster snapshot, so
-all old lines changed brightness together at midnight. I replaced that with a
-per-record age calculation: each `t` value is retained and faded independently
-for 48 hours. I also checked the literal raw fields (`t`, `v`, `s`, `f`, `q`)
-against the JSON and confirmed that all 7,440 records parse; no field was
-invented and no unparsable rows were silently dropped.
+**What I corrected.** The first animation held the previous day as one faded
+image. At midnight that image became dark all at once, although its 240 records
+had happened at different times. I changed the renderer to keep an age for each
+record instead: a thread is born at its actual six-minute timestamp, fades
+continuously, is already very dark after one day, and is removed after two.
+I also checked the raw rows against the code: the available fields are `t`,
+`v`, `s`, `f`, and `q`; all 7,440 rows parse, so no missing rows are silently
+discarded.
 
-## Kept
+**One thing kept, and why.** I kept the decision to let `v` control several
+related properties — radius, length, thickness and the teal-to-gold scale — and
+to let the difference between adjacent values bend the thread. That gives the
+image a water-like motion without inventing a current-speed column: every
+visible line still begins with a real water-level observation.
 
-I kept the idea of mapping water level to several linked visual properties:
-`v` controls reach, thickness and colour, while the difference from the prior
-six-minute `v` controls the direction and amount of bend. This was useful
-because the picture gains a water-like sense of motion, but every thread still
-comes from a real record and the mapping can be explained directly from the
-file.
-
-## Rejected
-
-I rejected mapping `s` to random jitter. Inspection showed that every `s`
-value in this file is `0.028`; using it to make variable noise would falsely
-suggest that the variability came from the data. I kept `s` in the parser and
-documented why it has no visual encoding instead.
+**One thing rejected, and why.** I rejected mapping `s` to random jitter. All
+7,440 `s` values are `0.028`, so drawing different noise from it would make the
+image look data-driven when it is not. I kept `s` in the parser and stated in
+the README that it has no visual encoding. I also did not copy the ShaderToy
+GLSL, simulation buffers, textures or assets; its contribution was only the
+idea of long, flowing trails.

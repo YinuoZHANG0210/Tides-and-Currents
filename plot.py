@@ -26,8 +26,8 @@ from matplotlib.animation import PillowWriter
 from matplotlib.collections import LineCollection
 
 FILE = "noaa-san-francisco-water-level-2026-08.json"
-ANIMATION = "tidal-mycelium-2026-08.gif"
-STILL = "tidal-mycelium-still.png"
+ANIMATION = "tide-traces-2026-08.gif"
+STILL = "tide-traces-still.png"
 STEPS_PER_DAY = 24  # one animated step per hour, releasing ten six-minute readings
 
 HERE = Path(__file__).parent
