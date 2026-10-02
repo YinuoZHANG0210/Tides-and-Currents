@@ -84,14 +84,14 @@ HTML = r"""<!doctype html>
     <section class="panel" aria-label="Interactive twelve-month tidal visualisation">
       <div class="canvas-wrap">
         <canvas id="field" aria-label="Twelve animated months of San Francisco water-level observations"></canvas>
-        <div class="readout"><p id="focus-label">OCT 2025 · LIVE MONTH LOOP</p><p id="clock">CLICK A FIELD TO FOCUS IT</p></div>
-        <div class="key"><span><i></i>DATA-DERIVED MONTH COLOUR · LOW → HIGH WATER WITHIN EACH FIELD</span></div>
+        <div class="readout"><p id="focus-label">OCT 2025 · FOCUS FIELD</p><p id="clock">CLICK A MONTH TO BRING IT FORWARD</p></div>
+        <div class="key"><span><i></i>FOCUS MONTH LARGE · OTHER MONTHS DIMMED · LOW → HIGH WATER WITHIN EACH FIELD</span></div>
       </div>
       <aside>
         <h2>CONTROLS</h2>
         <label>Focus month<select id="month" aria-label="Choose a month field"></select></label>
         <label>UTC date<select id="date" aria-label="Choose a date in the focused month"></select></label>
-        <p class="hint">Click a field to focus it. Live month loop keeps all twelve moving; selecting a date freezes only the focused field.</p>
+        <p class="hint">Click a small surrounding month to bring it forward. Live month loop keeps all twelve moving; selecting a date freezes only the focused field.</p>
         <label>Line form <span class="value" id="contrast-value">1.00×</span><input id="contrast" type="range" min="0.45" max="2.10" step="0.05" value="1" aria-label="Adjust line length and twist"></label>
         <label>Flow speed <span class="value" id="speed-value">1.00×</span><input id="speed" type="range" min="0.45" max="1.60" step="0.05" value="1" aria-label="Adjust the monthly animation speed"></label>
         <button id="pause" type="button">PAUSE FLOW</button>
@@ -147,7 +147,7 @@ HTML = r"""<!doctype html>
     const speedInput = document.querySelector('#speed'), speedValue = document.querySelector('#speed-value');
     const pauseButton = document.querySelector('#pause'), focusLabel = document.querySelector('#focus-label'), clockLabel = document.querySelector('#clock');
     const MONTH_DURATION = 120000, STEPS = 96;
-    let selectedMonth=0, selectedDate=null, formContrast=1, speed=1, running=true, started=performance.now(), frozenProgress=0, lastKey='';
+    let selectedMonth=0, selectedDate=null, formContrast=1, speed=1, running=true, started=performance.now(), frozenProgress=0, lastKey='', hitAreas=[];
 
     function label(date) { return new Date(date+'T00:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).toUpperCase(); }
     function resetClock() { started=performance.now(); frozenProgress=0; lastKey=''; }
@@ -206,7 +206,7 @@ HTML = r"""<!doctype html>
     function stats(day) {
       return { meanFraction:(day.mean-levelMin)/(levelMax-levelMin), rangeFraction:(day.range-rangeMin)/(rangeMax-rangeMin||1) };
     }
-    function drawRipples(day,release,monthIndex,scale,cx,cy) {
+    function drawRipples(day,release,monthIndex,scale,cx,cy,fieldOpacity) {
       const values=stats(day), rgb=accent(monthIndex), profile=PROFILES[monthIndex];
       for(let ring=0;ring<6;ring++) {
         const base=(.34+ring*.15+.24*values.rangeFraction)*profile.fieldScale, amplitude=(.010+(.014+.020*values.rangeFraction)*(ring+1)/6)*(.72+.60*profile.energy), points=[];
@@ -214,10 +214,10 @@ HTML = r"""<!doctype html>
           const angle=Math.PI*2*step/96, wave=Math.sin((2+ring%3)*angle-release*Math.PI*2), cross=.45*Math.sin((5+ring)*angle+values.meanFraction*Math.PI*2);
           points.push(point(base+amplitude*(wave+cross),angle,scale,cx,cy));
         }
-        stroke(points,rgb,.045+.03*values.rangeFraction,.22+.12*ring);
+        stroke(points,rgb,(.045+.03*values.rangeFraction)*fieldOpacity,.22+.12*ring);
       }
     }
-    function drawDay(day,release,dayOffset,monthIndex,scale,cx,cy) {
+    function drawDay(day,release,dayOffset,monthIndex,scale,cx,cy,fieldOpacity) {
       const profile=PROFILES[monthIndex], values=stats(day), spread=(.46+.82*Math.pow(values.rangeFraction,.72))*profile.fieldScale, core=.13+.25*(1-values.rangeFraction)+.06*(1-values.meanFraction);
       for(let slot=0;slot<day.rows.length;slot+=3) {
         const row=day.rows[slot], timeFraction=slot/(day.rows.length-1), age=dayOffset+release-timeFraction;
@@ -236,33 +236,59 @@ HTML = r"""<!doctype html>
           const progress=step/37, wave=Math.sin(slot*.19+step*.64+release*Math.PI*2), eddy=Math.sin(slot*.07-step*.31+release*Math.PI);
           points.push(point(radius+reach*progress+wiggle*1.8*eddy*(1-progress*.35),baseAngle+(curl+drift)*progress+sweep*Math.pow(progress,1.28)+wiggle*wave,scale,cx,cy));
         }
-        let alpha=(row[4]==='v'?.76:.30)*persistence*arrival*(.62+.38*freshness); if(row[3]!=='0,0,0,0') alpha*=.18; alpha=Math.min(1,alpha*1.34);
+        let alpha=(row[4]==='v'?.76:.30)*persistence*arrival*(.62+.38*freshness); if(row[3]!=='0,0,0,0') alpha*=.18; alpha=Math.min(1,alpha*1.34)*fieldOpacity;
         const rgb=colour(levelFraction,change>=0,monthIndex,freshness), width=(.15+.68*levelFraction)*(.78+.54*values.rangeFraction);
         stroke(points,rgb,alpha*(.14+.30*sigmaFraction),width+1.25+1.20*sigmaFraction); stroke(points,rgb,alpha,Math.max(.52,width));
         const particle=Math.floor(((release*1.6+timeFraction*.35)%1)*(points.length-2));
         stroke([points[particle],points[particle+1]],[245,255,249],alpha*(.35+.65*freshness),width+1.00);
       }
     }
-    function drawTile(monthIndex,progress,box) {
+    function drawTile(monthIndex,progress,box,focused) {
       const month=MONTHS[monthIndex], pin=monthIndex===selectedMonth && selectedDate!==null;
       const position=pin ? selectedDate+progress : progress*month.days.length, dayIndex=Math.min(Math.floor(position),month.days.length-1);
       const release=pin ? progress : position-Math.floor(position), day=month.days[dayIndex];
-      const size=Math.min(box.w,box.h), scale=size/3.88, cx=box.x+box.w/2, cy=box.y+box.h/2+5;
-      drawRipples(day,release,monthIndex,scale,cx,cy);
-      for(const offset of [2,1]) if(dayIndex-offset>=0) drawDay(month.days[dayIndex-offset],release,offset,monthIndex,scale,cx,cy);
-      drawDay(day,release,0,monthIndex,scale,cx,cy);
-      const rgb=accent(monthIndex), focused=monthIndex===selectedMonth;
-      context.fillStyle=rgba(rgb,focused?1:.72); context.font='750 12px ui-sans-serif,system-ui'; context.textAlign='left'; context.fillText(month.label.split(' ')[0],box.x+14,box.y+21);
-      context.fillStyle='#9ab7ba'; context.font='9px ui-sans-serif,system-ui'; context.fillText(label(day.date),box.x+14,box.y+34);
-      const hour=Math.min(24,Math.round(release*24)); context.textAlign='center'; context.fillStyle='#edf7ef'; context.font='700 14px ui-sans-serif,system-ui'; context.fillText(String(hour).padStart(2,'0')+':00',cx,cy+5);
-      context.fillStyle=rgba(rgb,.9); context.font='700 7px ui-sans-serif,system-ui'; context.fillText('UTC',cx,cy+17);
+      const size=Math.min(box.w,box.h), scale=size/(focused?3.60:4.40), cx=box.x+box.w/2, cy=box.y+box.h/2;
+      const fieldOpacity=focused?1:.22;
+      drawRipples(day,release,monthIndex,scale,cx,cy,fieldOpacity);
+      for(const offset of [2,1]) if(dayIndex-offset>=0) drawDay(month.days[dayIndex-offset],release,offset,monthIndex,scale,cx,cy,fieldOpacity);
+      drawDay(day,release,0,monthIndex,scale,cx,cy,fieldOpacity);
+      const rgb=accent(monthIndex);
+      if(focused) {
+        const hour=Math.min(24,Math.round(release*24)); context.textAlign='center'; context.fillStyle='#edf7ef'; context.font='700 20px ui-sans-serif,system-ui'; context.fillText(String(hour).padStart(2,'0')+':00',cx,cy+5);
+        context.fillStyle=rgba(rgb,.96); context.font='700 8px ui-sans-serif,system-ui'; context.fillText('UTC',cx,cy+19);
+      } else {
+        context.fillStyle=rgba(rgb,.82); context.font='750 10px ui-sans-serif,system-ui'; context.textAlign='center'; context.textBaseline='top'; context.fillText(month.label.split(' ')[0],cx,box.y+1); context.textBaseline='alphabetic';
+      }
       return {day,release,pin};
     }
+    function focusLayout(width,height) {
+      // The title and colour key occupy protected bands above and below the
+      // visual field, so circles and text never compete for the same pixels.
+      const stage={x:16,y:72,w:width-32,h:Math.max(170,height-118)};
+      const focusSize=Math.min(stage.h*.42,stage.w*.34);
+      const focusBox={x:stage.x+stage.w/2-focusSize/2,y:stage.y+stage.h/2-focusSize/2,w:focusSize,h:focusSize};
+      const smallSize=Math.min(stage.h*.18,stage.w*.12);
+      const radiusX=(stage.w-smallSize)*.47, radiusY=(stage.h-smallSize)*.47;
+      const others=MONTHS.map((_,index)=>index).filter(index=>index!==selectedMonth);
+      const boxes=new Map([[selectedMonth,focusBox]]);
+      others.forEach((monthIndex,slot)=>{
+        const angle=-Math.PI/2+Math.PI*2*slot/others.length;
+        boxes.set(monthIndex,{x:stage.x+stage.w/2+radiusX*Math.cos(angle)-smallSize/2,y:stage.y+stage.h/2+radiusY*Math.sin(angle)-smallSize/2,w:smallSize,h:smallSize});
+      });
+      return boxes;
+    }
     function draw(progress) {
-      const width=bounds.width,height=bounds.height, cellW=width/4, cellH=height/3;
+      const width=bounds.width,height=bounds.height, boxes=focusLayout(width,height);
       context.clearRect(0,0,width,height); context.fillStyle='#040b12'; context.fillRect(0,0,width,height);
-      let focus;
-      for(let index=0;index<12;index++) focus=drawTile(index,progress,{x:(index%4)*cellW,y:Math.floor(index/4)*cellH,w:cellW,h:cellH}) || focus;
+      hitAreas=[];
+      for(let index=0;index<MONTHS.length;index++) {
+        if(index===selectedMonth) continue;
+        const box=boxes.get(index); drawTile(index,progress,box,false);
+        hitAreas.push({monthIndex:index,cx:box.x+box.w/2,cy:box.y+box.h/2,radius:box.w*.58});
+      }
+      const focusBox=boxes.get(selectedMonth);
+      drawTile(selectedMonth,progress,focusBox,true);
+      hitAreas.push({monthIndex:selectedMonth,cx:focusBox.x+focusBox.w/2,cy:focusBox.y+focusBox.h/2,radius:focusBox.w*.54});
       const month=MONTHS[selectedMonth], focusPosition=selectedDate===null ? progress*month.days.length : selectedDate+progress;
       const focusDay=month.days[Math.min(Math.floor(focusPosition),month.days.length-1)], hour=Math.min(24,Math.round((selectedDate===null ? focusPosition-Math.floor(focusPosition) : progress)*24));
       focusLabel.textContent=month.label+' · '+(selectedDate===null?'LIVE MONTH LOOP':label(focusDay.date));
@@ -274,8 +300,9 @@ HTML = r"""<!doctype html>
       requestAnimationFrame(render);
     }
     canvas.addEventListener('pointerdown',event=>{
-      const rect=canvas.getBoundingClientRect(), column=Math.min(3,Math.floor((event.clientX-rect.left)/rect.width*4)), row=Math.min(2,Math.floor((event.clientY-rect.top)/rect.height*3));
-      chooseMonth(row*4+column);
+      const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left, y=event.clientY-rect.top;
+      const target=hitAreas.map(area=>({...area,distance:Math.hypot(x-area.cx,y-area.cy)})).filter(area=>area.distance<area.radius).sort((first,second)=>first.distance-second.distance)[0];
+      if(target && target.monthIndex!==selectedMonth) chooseMonth(target.monthIndex);
     });
     requestAnimationFrame(render);
   </script>

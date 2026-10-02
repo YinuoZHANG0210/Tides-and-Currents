@@ -14,8 +14,8 @@ picture that could not be drawn by hand, and every transformation written down.
 ![a still from the twelve-month animation](out/tide-traces-year-still.png)
 
 **The live page:** <https://yinuozhang0210.github.io/Tides-and-Currents/> —
-click a field, choose a UTC date, change the line form, or let all twelve
-months play.
+click a surrounding month to bring it forward, choose a UTC date, change the
+line form, or let all twelve months play.
 
 ## The phenomenon
 
@@ -49,7 +49,7 @@ find those cached files and make no network request.
 | Command | Makes | What it is |
 |---|---|---|
 | uv run plot.py | out/tide-traces-year-2025-10-to-2026-09.gif, out/tide-traces-year-still.png | A 144-frame, 3 × 4 animation. Each monthly field advances from its first to last UTC day; at three frames per second, the full loop is 48 seconds. |
-| uv run web.py | site/index.html | The same twelve fields as a self-contained Canvas page. At 1.00×, a full monthly loop lasts 120 seconds; clicking a field and choosing a date pins just that month. |
+| uv run web.py | site/index.html | A self-contained Canvas page. The focused month enlarges at the centre while the other eleven dim and orbit it; at 1.00×, a full monthly loop lasts 120 seconds. |
 
 The GIF samples every other six-minute observation and the browser samples
 every third. The source files remain unchanged; this is the visual sampling
