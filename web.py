@@ -250,7 +250,7 @@ HTML = r"""<!doctype html>
       // A chosen month is a foreground field, not just a slightly larger tile:
       // it receives almost four times the drawing scale and the surrounding
       // months become a quiet, contextual calendar.
-      const size=Math.min(box.w,box.h), scale=size/(focused?3.75:4.95), cx=box.x+box.w/2, cy=box.y+box.h/2;
+      const size=Math.min(box.w,box.h), scale=size/(focused?3.55:4.95), cx=box.x+box.w/2, cy=box.y+box.h/2;
       const fieldOpacity=focused?1:.10;
       if(focused) {
         const halo=context.createRadialGradient(cx,cy,size*.05,cx,cy,size*.66), rgb=accent(monthIndex);
@@ -275,7 +275,7 @@ HTML = r"""<!doctype html>
       const stage={x:16,y:76,w:width-32,h:Math.max(170,height-122)};
       // Deliberately reserve the middle of the canvas for one large field.
       // The other eleven months orbit it as small, dim previews.
-      const focusSize=Math.min(stage.h*.50,stage.w*.42);
+      const focusSize=Math.min(stage.h*.58,stage.w*.49);
       const focusBox={x:stage.x+stage.w/2-focusSize/2,y:stage.y+stage.h/2-focusSize/2,w:focusSize,h:focusSize};
       const smallSize=Math.min(stage.h*.15,stage.w*.105);
       const radiusX=(stage.w-smallSize)*.475, radiusY=(stage.h-smallSize)*.47;
