@@ -13,7 +13,7 @@ picture that could not be drawn by hand, and every transformation written down.
 
 ![a still from the twelve-month animation](out/tide-traces-year-still.png)
 
-**The live page:** <https://yinuozhang0210.github.io/Tides-and-Currents/> —
+**The live page:** <https://yinuozhang0210.github.io/Tides-and-Currents/?view=focus-month> —
 click a surrounding month to bring it forward, choose a UTC date, change the
 line form, or let all twelve months play.
 
