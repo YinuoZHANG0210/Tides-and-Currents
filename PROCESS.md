@@ -1,36 +1,31 @@
 # Process
 
-This repository was developed with OpenAI Codex. The assignment asks for
-honesty about that collaboration, so this records what the model proposed and
-what changed after I ran the scripts and inspected the images.
+This repository was made with OpenAI Codex, an AI assistant. The assignment
+asks for the same honesty as the worked example, so this explains what it
+wrote, what I kept, and what I changed after running the code and looking at
+the output.
 
-**What the assistant did.** Codex helped select the NOAA CO-OPS endpoint and
-wrote first versions of `fetch.py`, `plot.py`, and `web.py` from the brief: one
-month of San Francisco water-level records as a flowing, circular animation. It
-also suggested the long-trail visual language after I supplied ShaderToy
-references, helped inspect the raw JSON, and drafted documentation. Python
-`requests` saves the one raw reply; Matplotlib and Pillow render the GIF and
-still; plain browser Canvas makes the interactive page. The finished renderers
-do not make a network request: they read the committed JSON in `data/`.
+**What the assistant did.** It helped choose the NOAA CO-OPS water-level
+endpoint, wrote the first versions of fetch.py, plot.py, and web.py, and
+drafted documentation from the raw JSON. It also turned my visual references
+for long flowing traces into Matplotlib and Canvas code. Requests downloads the
+public JSON replies; Matplotlib and Pillow render the GIF and still; the browser
+page is plain Canvas. All renderers read cached data/ files after the first
+fetch.
 
-**What I corrected.** The first renderer kept the preceding day as one faded
-image. At midnight all 240 old observations changed brightness together, even
-though they occurred six minutes apart across the day. I replaced that shortcut
-with a per-record age: each trace is born at its actual timestamp, becomes very
-dark after one day, and disappears only when it reaches two days old. I also
-checked the raw records against the code: the available fields are `t`, `v`,
-`s`, `f`, and `q`; all 7,440 parse, and no missing rows are silently dropped.
+**One thing kept, and why.** I kept the readable field transformation from the
+first August experiment: t puts a line around a circular clock, v gives it
+reach and brightness, and the difference between adjacent v values gives it a
+signed bend. It makes movement from a water-level series without inventing
+current speed or direction. I extended it with month_profiles(), a short
+function that calculates a month's mean, full span, and average daily range.
+Those measurements determine field size and the ranked monthly line colour.
 
-**One thing kept, and why.** I kept the decision to let `v` control several
-linked properties — radius, reach, line width, and teal-to-gold colour — while
-the difference between adjacent `v` values controls signed bend. This produces
-a water-like rhythm without inventing a current-speed column: every visible
-trace still starts with a real water-level observation and the mapping is
-written down in the README.
-
-**One thing rejected, and why.** I rejected mapping `s` to random jitter. Every
-`s` value is `0.028`; making different noise from a constant field would make
-the picture look data-driven when it is not. I kept `s` in the parser and stated
-why it has no visual encoding. I also rejected copying the ShaderToy GLSL,
-simulation buffers, textures, or assets: its contribution is a visual reference
-for the length and flow of the traces, not code or image material in this repo.
+**One thing rejected, and why.** The first annual version placed twelve months
+as concentric rings. That made a year-shaped graphic, but it hid the individual
+monthly flow fields I wanted to compare. I replaced it with a 3 × 4 grid where
+every month loops independently. I also rejected a fixed calendar rainbow:
+the current cyan-to-red line palette is ranked from each month's measured mean
+water level and tidal energy. Finally, the first parser assumed every s field
+was numeric; one real NOAA record has an empty s. It now retains that row as a
+missing value instead of silently dropping it.
