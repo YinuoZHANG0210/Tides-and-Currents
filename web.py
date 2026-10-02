@@ -247,8 +247,16 @@ HTML = r"""<!doctype html>
       const month=MONTHS[monthIndex], pin=monthIndex===selectedMonth && selectedDate!==null;
       const position=pin ? selectedDate+progress : progress*month.days.length, dayIndex=Math.min(Math.floor(position),month.days.length-1);
       const release=pin ? progress : position-Math.floor(position), day=month.days[dayIndex];
-      const size=Math.min(box.w,box.h), scale=size/(focused?3.60:4.40), cx=box.x+box.w/2, cy=box.y+box.h/2;
-      const fieldOpacity=focused?1:.22;
+      // A chosen month is a foreground field, not just a slightly larger tile:
+      // it receives almost four times the drawing scale and the surrounding
+      // months become a quiet, contextual calendar.
+      const size=Math.min(box.w,box.h), scale=size/(focused?3.75:4.95), cx=box.x+box.w/2, cy=box.y+box.h/2;
+      const fieldOpacity=focused?1:.10;
+      if(focused) {
+        const halo=context.createRadialGradient(cx,cy,size*.05,cx,cy,size*.66), rgb=accent(monthIndex);
+        halo.addColorStop(0,rgba(rgb,.10)); halo.addColorStop(.48,rgba(rgb,.035)); halo.addColorStop(1,rgba(rgb,0));
+        context.fillStyle=halo; context.fillRect(cx-size*.68,cy-size*.68,size*1.36,size*1.36);
+      }
       drawRipples(day,release,monthIndex,scale,cx,cy,fieldOpacity);
       for(const offset of [2,1]) if(dayIndex-offset>=0) drawDay(month.days[dayIndex-offset],release,offset,monthIndex,scale,cx,cy,fieldOpacity);
       drawDay(day,release,0,monthIndex,scale,cx,cy,fieldOpacity);
@@ -264,11 +272,13 @@ HTML = r"""<!doctype html>
     function focusLayout(width,height) {
       // The title and colour key occupy protected bands above and below the
       // visual field, so circles and text never compete for the same pixels.
-      const stage={x:16,y:72,w:width-32,h:Math.max(170,height-118)};
-      const focusSize=Math.min(stage.h*.42,stage.w*.34);
+      const stage={x:16,y:76,w:width-32,h:Math.max(170,height-122)};
+      // Deliberately reserve the middle of the canvas for one large field.
+      // The other eleven months orbit it as small, dim previews.
+      const focusSize=Math.min(stage.h*.50,stage.w*.42);
       const focusBox={x:stage.x+stage.w/2-focusSize/2,y:stage.y+stage.h/2-focusSize/2,w:focusSize,h:focusSize};
-      const smallSize=Math.min(stage.h*.18,stage.w*.12);
-      const radiusX=(stage.w-smallSize)*.47, radiusY=(stage.h-smallSize)*.47;
+      const smallSize=Math.min(stage.h*.15,stage.w*.105);
+      const radiusX=(stage.w-smallSize)*.475, radiusY=(stage.h-smallSize)*.47;
       const others=MONTHS.map((_,index)=>index).filter(index=>index!==selectedMonth);
       const boxes=new Map([[selectedMonth,focusBox]]);
       others.forEach((monthIndex,slot)=>{
