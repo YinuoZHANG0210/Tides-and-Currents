@@ -21,6 +21,18 @@ current speed or direction. I extended it with month_profiles(), a short
 function that calculates a month's mean, full span, and average daily range.
 Those measurements determine field size and the ranked monthly line colour.
 
+**One thing revised after testing the page.** The first web layout gave the
+twelve monthly fields too nearly equal a role. It was difficult to tell which
+month the date control had selected, and a title saying `LIVE MONTH LOOP` did
+not say where the animation was within that month. I kept the twelve-month
+comparison, but changed the interaction into a foreground/background view:
+clicking a small month, or selecting it in the control, brings it to the
+centre as the large bright field; the other eleven become small dim previews
+around it. In live mode the heading now reports `LIVE DAY 01 / 31` (with the
+appropriate day count), so the changing drawing has an explicit temporal
+position. Selecting a UTC date fixes the centre field to that day while its
+time-of-day trace continues and the other months continue their own loops.
+
 **One thing rejected, and why.** The first annual version placed twelve months
 as concentric rings. That made a year-shaped graphic, but it hid the individual
 monthly flow fields I wanted to compare. I replaced it with a 3 × 4 grid where

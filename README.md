@@ -4,7 +4,9 @@ The water at San Francisco does not simply rise and fall at the same height
 every day. The Moon and Sun drive the tide, while weather and the shape of the
 bay alter what arrives at the gauge. This repository takes one complete year
 of six-minute NOAA observations, puts each month in its own circular flow
-field, and replays all twelve months together.
+field, and replays all twelve months together. The web version lets one month
+step forward as a large foreground field while the other eleven remain as dim
+seasonal context.
 
 It is one published collection of numbers about a natural phenomenon, a
 picture that could not be drawn by hand, and every transformation written down.
@@ -15,7 +17,8 @@ picture that could not be drawn by hand, and every transformation written down.
 
 **The live page:** <https://yinuozhang0210.github.io/Tides-and-Currents/?view=focus-month> —
 click a surrounding month to bring it forward, choose a UTC date, change the
-line form, or let all twelve months play.
+line form, or let all twelve months play. In live mode its heading reports the
+current simulated day, for example `LIVE DAY 17 / 31`.
 
 ## The phenomenon
 
@@ -23,8 +26,10 @@ San Francisco normally has two high and two low waters a day, but the height
 and range of those tides change across the lunar cycle. The data cover 01
 October 2025 to 30 September 2026: 365 days in which a high-energy December
 or January field can sit beside a tighter, quieter March or September field.
-The 3 × 4 layout preserves calendar order from October to September while
-letting every month show its own daily rhythm.
+The GIF's 3 × 4 layout preserves calendar order from October to September
+while letting every month show its own daily rhythm. On the page, the selected
+month moves to the centre and the remaining months recede into a dim orbit, so
+one daily rhythm can be read closely without losing the year around it.
 
 ## The source
 
@@ -49,18 +54,22 @@ find those cached files and make no network request.
 | Command | Makes | What it is |
 |---|---|---|
 | uv run plot.py | out/tide-traces-year-2025-10-to-2026-09.gif, out/tide-traces-year-still.png | A 144-frame, 3 × 4 animation. Each monthly field advances from its first to last UTC day; at three frames per second, the full loop is 48 seconds. |
-| uv run web.py | site/index.html | A self-contained Canvas page. The focused month enlarges at the centre while the other eleven dim and orbit it; at 1.00×, a full monthly loop lasts 120 seconds. |
+| uv run web.py | site/index.html | A self-contained Canvas page. Clicking a month, or choosing it in the control, puts it at the centre as a large bright field while the other eleven shrink and dim around it. In `LIVE MONTH LOOP`, the heading counts the current simulated day; at 1.00×, a full monthly loop lasts 120 seconds. |
 
 The GIF samples every other six-minute observation and the browser samples
 every third. The source files remain unchanged; this is the visual sampling
-that keeps twelve simultaneous fields readable.
+that keeps twelve simultaneous fields readable. Choosing a specific UTC date
+holds that centre field on the selected day while its time-of-day animation
+continues; the small surrounding months keep looping.
 
 **What the pictures show:** Time sets a trace around a circular clock, v sets
 its reach and brightness, and the difference from the preceding v bends it.
 Month mean, full-month span, and average daily range set the field scale,
-ripples, saturation, and hue. The resulting grid makes twelve related tidal
-climates visible at once: dense, expanded coloured fields for larger tidal
-ranges and compact fields for quieter months.
+ripples, saturation, and hue. The GIF makes twelve related tidal climates
+visible at once: dense, expanded coloured fields for larger tidal ranges and
+compact fields for quieter months. The page turns that comparison into a
+foreground/background composition: a chosen month becomes an enlarged bright
+ring at the centre, with the remaining seasonal fields dimmed but still present.
 
 **What they hide:** The animation replaces axes, exact labels, geography, and
 causal explanation with a field of marks. It shows a sampled rendering rather
@@ -82,9 +91,11 @@ Three functions, each a transformation, and a loop over 144 moments:
   gives halo, and f and q reduce opacity.
 
 main() loops through the 144 frames; draw_grid() loops through the twelve
-months for every frame. The adjustable constants are close to the top of
-plot.py and web.py. The Pages workflow runs web.py after each push and publishes
-site/, which is output and is never committed.
+months for every frame. In web.py, focusLayout() places one chosen month in the
+centre and positions the other eleven around it, while draw() loops through all
+twelve fields at each animation moment. The adjustable constants are close to
+the top of plot.py and web.py. The Pages workflow runs web.py after each push
+and publishes site/, which is output and is never committed.
 
 ## Run it
 

@@ -301,7 +301,8 @@ HTML = r"""<!doctype html>
       hitAreas.push({monthIndex:selectedMonth,cx:focusBox.x+focusBox.w/2,cy:focusBox.y+focusBox.h/2,radius:focusBox.w*.54});
       const month=MONTHS[selectedMonth], focusPosition=selectedDate===null ? progress*month.days.length : selectedDate+progress;
       const focusDay=month.days[Math.min(Math.floor(focusPosition),month.days.length-1)], hour=Math.min(24,Math.round((selectedDate===null ? focusPosition-Math.floor(focusPosition) : progress)*24));
-      focusLabel.textContent=month.label+' · '+(selectedDate===null?'LIVE MONTH LOOP':label(focusDay.date));
+      const liveDay=Math.min(Math.floor(focusPosition)+1,month.days.length);
+      focusLabel.textContent=month.label+' · '+(selectedDate===null?'LIVE DAY '+String(liveDay).padStart(2,'0')+' / '+month.days.length:label(focusDay.date));
       clockLabel.textContent=String(hour).padStart(2,'0')+':00 UTC · MEAN '+focusDay.mean.toFixed(2)+' M · RANGE '+focusDay.range.toFixed(2)+' M';
     }
     function render(now) {
